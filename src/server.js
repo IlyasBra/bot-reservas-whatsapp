@@ -5,10 +5,10 @@ import crypto from "node:crypto";
 import { negocio } from "./config.js";
 import { responder, estadoInicial } from "./flow.js";
 import { enviar } from "./whatsapp.js";
-import { sesiones, citas, yaProcesado } from "./store.js";
+import { sesiones, citas, yaProcesado, agregarCita, quitarCita } from "./store.js";
 
 process.env.TZ ??= negocio.zonaHoraria;
-const { VERIFY_TOKEN, APP_SECRET, PORT = 3000 } = process.env;
+const { VERIFY_TOKEN, APP_SECRET, ADMIN_TOKEN, PORT = 3000 } = process.env;
 
 function extraerEntrada(m) {
   if (m.type === "text") return { tipo: "texto", texto: m.text?.body ?? "" };
@@ -34,8 +34,11 @@ async function procesar(cuerpo) {
         });
         sesiones.set(m.from, r.estado);
         if (r.nuevaCita) {
-          citas.push(r.nuevaCita);
+          agregarCita(r.nuevaCita);
           console.log("[cita] " + r.nuevaCita.fecha + " " + r.nuevaCita.min + " min - " + r.nuevaCita.servicio);
+        }
+        if (r.cancelarCita && quitarCita(r.cancelarCita)) {
+          console.log("[cancelación] " + r.cancelarCita.fecha + " " + r.cancelarCita.min + " min");
         }
         if (r.estado.paso === "humano" && estado.paso !== "humano") {
           console.log("[derivación] un cliente pide atención humana");
@@ -62,6 +65,14 @@ function firmaValida(cuerpo, firma) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Acceso del negocio a su agenda: cabecera "Authorization: Bearer <ADMIN_TOKEN>". Sin ADMIN_TOKEN, desactivado.
+function esAdmin(req) {
+  if (!ADMIN_TOKEN) return false;
+  const a = Buffer.from(req.headers.authorization ?? "");
+  const b = Buffer.from("Bearer " + ADMIN_TOKEN);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 const fin = (res, codigo, texto = "") => {
   res.writeHead(codigo, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(texto);
@@ -71,6 +82,11 @@ http
   .createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/health") return fin(res, 200, "ok");
+    if (url.pathname === "/citas" && req.method === "GET") {
+      if (!esAdmin(req)) return fin(res, 401);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      return res.end(JSON.stringify(citas));
+    }
     if (url.pathname !== "/webhook") return fin(res, 404);
 
     // Verificación inicial del webhook por parte de Meta
