@@ -1,7 +1,12 @@
 {
   "name": "bot-reservas-whatsapp",
   "version": "0.1.0",
-  "description": "Bot de reservas de citas por WhatsApp (Cloud API de Meta). Demo con un negocio ficticio.",
+  "description": "Bot de reservas de citas por WhatsApp (Cloud API de Meta), bilingüe español/inglés. Demo con un negocio ficticio.",
+  "keywords": ["whatsapp", "whatsapp-bot", "chatbot", "booking", "appointments", "cloud-api", "nodejs"],
+  "author": "IlyasBra (https://github.com/IlyasBra)",
+  "homepage": "https://ilyasbra.github.io/bot-reservas-whatsapp/",
+  "repository": { "type": "git", "url": "git+https://github.com/IlyasBra/bot-reservas-whatsapp.git" },
+  "bugs": { "url": "https://github.com/IlyasBra/bot-reservas-whatsapp/issues" },
   "type": "module",
   "private": true,
   "license": "MIT",
