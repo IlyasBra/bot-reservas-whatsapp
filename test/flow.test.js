@@ -236,3 +236,56 @@ test("los mensajes en inglés también cumplen los límites de la API de WhatsAp
     assert.ok((m.texto ?? "").length <= 1024);
   }
 });
+
+// ---------- cancelar cita ----------
+
+const citasDe = (telefono) => [
+  { servicio: "corte", fecha: "2026-11-17", min: 600, minutos: 30, telefono: "34600000000", nombre: "Alex" },
+  { servicio: "barba", fecha: "2026-11-18", min: 660, minutos: 20, telefono: "34611111111", nombre: "Otro" },
+  { servicio: "corte", fecha: "2026-11-16", min: 480, minutos: 30, telefono: "34600000000", nombre: "Alex" }, // ya pasada
+];
+
+test("el cliente ve y cancela su próxima cita", () => {
+  const yo = { citas: citasDe(), telefono: "34600000000" };
+  let r = responder(estadoInicial(), texto("quiero cancelar mi cita"), ctx(yo));
+  assert.match(r.mensajes[0].texto, /martes 17 de noviembre a las 10:00/); // la de las 8:00 de hoy ya pasó
+  assert.deepEqual(r.mensajes[0].botones.map((b) => b.id), ["anular", "mantener"]);
+  r = responder(r.estado, boton("anular"), ctx(yo));
+  assert.deepEqual(r.cancelarCita, { fecha: "2026-11-17", min: 600, telefono: "34600000000" });
+  assert.match(r.mensajes[0].texto, /cancelada/);
+});
+
+test("no se puede cancelar la cita de otra persona ni sin haberla mostrado", () => {
+  const yo = { citas: citasDe(), telefono: "34600000000" };
+  // Estado manipulado para apuntar a la cita de otro teléfono
+  let r = responder({ paso: "anular", fecha: "2026-11-18", min: 660 }, boton("anular"), ctx(yo));
+  assert.equal(r.cancelarCita, undefined);
+  // Pulsar "anular" sin haber pasado por "mi cita"
+  r = responder(estadoInicial(), boton("anular"), ctx(yo));
+  assert.equal(r.cancelarCita, undefined);
+  // Sin teléfono identificado no se cancela nada
+  r = responder({ paso: "anular", fecha: "2026-11-17", min: 600 }, boton("anular"), ctx({ citas: citasDe() }));
+  assert.equal(r.cancelarCita, undefined);
+});
+
+test("sin citas próximas se avisa, y 'mantenerla' no cancela nada", () => {
+  let r = responder(estadoInicial(), texto("mi cita"), ctx({ citas: [], telefono: "34600000000" }));
+  assert.match(r.mensajes[0].texto, /ninguna cita próxima/);
+  const yo = { citas: citasDe(), telefono: "34600000000" };
+  r = responder(estadoInicial(), texto("mi cita"), ctx(yo));
+  r = responder(r.estado, boton("mantener"), ctx(yo));
+  assert.equal(r.cancelarCita, undefined);
+  assert.match(r.mensajes[0].texto, /sigue en pie/);
+});
+
+test("en inglés: cancelar una cita", () => {
+  const yo = { citas: citasDe(), telefono: "34600000000" };
+  let r = responder(estadoInicial(), texto("I want to cancel my appointment"), ctx(yo));
+  assert.equal(r.estado.idioma, "en");
+  assert.match(r.mensajes[0].texto, /Your next appointment/);
+  assert.match(r.mensajes[0].texto, /Tuesday, November 17 at 10:00/);
+  assert.deepEqual(r.mensajes[0].botones.map((b) => b.titulo), ["Cancel appointment", "Keep it"]);
+  r = responder(r.estado, boton("anular"), ctx(yo));
+  assert.ok(r.cancelarCita);
+  assert.match(r.mensajes[0].texto, /is cancelled/);
+});
