@@ -140,3 +140,99 @@ test("todos los mensajes cumplen los límites de la API de WhatsApp", () => {
     assert.ok((m.texto ?? "").length <= 1024);
   }
 });
+
+// ---------- inglés ----------
+
+test("en inglés: un saludo en inglés se detecta y el menú sale en inglés", () => {
+  const r = responder(estadoInicial(), texto("Hello, I want to book"), ctx());
+  assert.equal(r.estado.idioma, "en");
+  assert.equal(r.mensajes[0].tipo, "lista"); // "book" lleva directo a elegir servicio
+  assert.match(r.mensajes[0].texto, /Which service/);
+  const m = responder(estadoInicial(), texto("hi"), ctx());
+  assert.deepEqual(m.mensajes[0].botones.map((b) => b.titulo), ["Book appointment", "Prices & hours", "Talk to someone"]);
+});
+
+test("en inglés: flujo completo y confirmación", () => {
+  let r = responder(estadoInicial("en"), boton("reservar"), ctx());
+  assert.equal(r.mensajes[0].filas[0].titulo, "Haircut");
+  r = responder(r.estado, boton("srv:corte"), ctx());
+  assert.equal(r.mensajes[0].filas[0].titulo, "Mon 16 Nov");
+  assert.match(r.mensajes[0].filas[0].descripcion, /free slots/);
+  r = responder(r.estado, boton("dia:2026-11-16"), ctx());
+  assert.deepEqual(r.mensajes[0].botones.map((b) => b.titulo), ["Morning", "Afternoon", "Evening"]);
+  r = responder(r.estado, boton("fr:man"), ctx());
+  r = responder(r.estado, boton("hora:600"), ctx());
+  assert.match(r.mensajes[0].texto, /Monday, November 16 at 10:00/);
+  r = responder(r.estado, boton("ok"), ctx({ nombre: "Alex Pérez", telefono: "34600000000" }));
+  assert.equal(r.nuevaCita.servicio, "corte");
+  assert.match(r.mensajes[0].texto, /Booked, Alex!/);
+  assert.equal(r.estado.idioma, "en"); // el idioma se mantiene
+});
+
+test("en inglés: preguntas frecuentes e información", () => {
+  let r = responder(estadoInicial(), texto("How much is a haircut?"), ctx());
+  assert.match(r.mensajes[0].texto, /Our prices/);
+  r = responder(estadoInicial("en"), boton("info"), ctx());
+  assert.match(r.mensajes[0].texto, /Monday to Friday/);
+  assert.match(r.mensajes[0].texto, /Beard trim/);
+  r = responder(estadoInicial("en"), texto("what time do you open"), ctx());
+  assert.match(r.mensajes[0].texto, /Our hours/);
+});
+
+test("el cliente puede cambiar de idioma escribiendo english o español", () => {
+  let r = responder(estadoInicial(), texto("hola"), ctx());
+  assert.equal(r.estado.idioma, "es");
+  r = responder(r.estado, texto("english please"), ctx());
+  assert.equal(r.estado.idioma, "en");
+  assert.match(r.mensajes[0].texto, /continue in English/);
+  r = responder(r.estado, texto("español"), ctx());
+  assert.equal(r.estado.idioma, "es");
+  assert.match(r.mensajes[0].texto, /seguimos en español/);
+});
+
+test("en inglés: derivación a una persona y silencio del bot", () => {
+  let r = responder(estadoInicial("en"), texto("I want to speak with a person"), ctx());
+  assert.equal(r.estado.paso, "humano");
+  assert.match(r.mensajes[0].texto, /a person from/);
+  r = responder(r.estado, texto("hello?"), ctx());
+  assert.deepEqual(r.mensajes, []);
+  r = responder(r.estado, texto("menu"), ctx());
+  assert.equal(r.mensajes[0].tipo, "botones");
+  assert.equal(r.estado.idioma, "en");
+});
+
+test("los mensajes en inglés también cumplen los límites de la API de WhatsApp", () => {
+  const vistos = [];
+  const recorrer = (estado, entrada) => {
+    const r = responder(estado, entrada, ctx());
+    vistos.push(...r.mensajes);
+    return r;
+  };
+  let r = recorrer(estadoInicial("en"), texto("hello"));
+  recorrer(estadoInicial("en"), boton("info"));
+  r = recorrer(r.estado, boton("reservar"));
+  for (const s of negocio.servicios) {
+    let x = recorrer(r.estado, boton("srv:" + s.id));
+    x = recorrer(x.estado, boton("dia:2026-11-17"));
+    for (const f of ["man", "tar", "ult"]) {
+      const y = recorrer(x.estado, boton("fr:" + f));
+      const hora = y.mensajes[0].filas?.[0];
+      if (hora) recorrer(y.estado, boton(hora.id));
+    }
+  }
+  for (const m of vistos) {
+    if (m.tipo === "botones") {
+      assert.ok(m.botones.length <= 3);
+      m.botones.forEach((b) => assert.ok(b.titulo.length <= 20, b.titulo));
+    }
+    if (m.tipo === "lista") {
+      assert.ok(m.filas.length >= 1 && m.filas.length <= 10);
+      assert.ok(m.boton.length <= 20);
+      m.filas.forEach((f) => {
+        assert.ok(f.titulo.length <= 24, f.titulo);
+        assert.ok((f.descripcion ?? "").length <= 72);
+      });
+    }
+    assert.ok((m.texto ?? "").length <= 1024);
+  }
+});
