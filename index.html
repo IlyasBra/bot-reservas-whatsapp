@@ -218,7 +218,7 @@
       const s = negocio.servicios.find((x) => x.id === c.servicio);
       const [, m, d] = c.fecha.split("-").map(Number);
       const li = document.createElement("li");
-      li.textContent = d + " " + MESES[idioma][m - 1] + " · " + pad(Math.floor(c.min / 60)) + ":" + pad(c.min % 60) + " · " + (s ? s.nombre : c.servicio) + " · " + c.nombre;
+      li.textContent = d + " " + MESES[idioma][m - 1] + " · " + pad(Math.floor(c.min / 60)) + ":" + pad(c.min % 60) + " · " + (s ? (idioma === "en" && s.en ? s.en : s.nombre) : c.servicio) + " · " + c.nombre;
       agenda.appendChild(li);
     }
   }
@@ -227,8 +227,13 @@
     burbuja(etiqueta, "yo");
     const r = responder(estado, entrada, { citas, nombre: "Alex", telefono: "demo", idioma });
     estado = r.estado;
-    if (estado.idioma && estado.idioma !== idioma) { idioma = estado.idioma; aplicarIdioma(); }
+    if (estado.idioma && estado.idioma !== idioma) { idioma = estado.idioma; aplicarIdioma(); pintarAgenda(); }
     if (r.nuevaCita) { citas.push(r.nuevaCita); pintarAgenda(); }
+    if (r.cancelarCita) {
+      const i = citas.findIndex((c) => c.fecha === r.cancelarCita.fecha && c.min === r.cancelarCita.min);
+      if (i >= 0) citas.splice(i, 1);
+      pintarAgenda();
+    }
     const escribiendo = document.createElement("div");
     escribiendo.className = "burbuja bot escribiendo";
     escribiendo.textContent = tr("escribiendo");
