@@ -20,6 +20,9 @@ Asistente que permite a los clientes de un negocio **reservar cita hablando por 
 - **Huecos calculados en tiempo real** según el horario, la duración de cada servicio, el número de puestos de trabajo y las citas ya reservadas. No permite reservar dos veces el mismo hueco, y lo vuelve a comprobar al confirmar.
 - **Preguntas frecuentes** (precios, horario, dirección, formas de pago) respondidas sin salir del chat.
 - **Paso a una persona:** si el cliente lo pide, el bot calla y deja la conversación en manos del equipo.
+- **Cancelación por el cliente:** al escribir "cancelar cita" (o "cancel my appointment") el bot muestra su próxima cita y la anula tras confirmar. Solo puede anular citas de su propio número.
+- **Citas persistentes:** se guardan en un archivo JSON con escritura atómica y sobreviven a los reinicios.
+- **Agenda para el negocio:** endpoint `GET /citas` protegido con token (`ADMIN_TOKEN`).
 - **Seguro:** verificación del webhook, comprobación de la firma de Meta (`X-Hub-Signature-256`) y descarte de mensajes duplicados (Meta reintenta los envíos).
 - **Sin dependencias:** solo módulos de Node.js.
 
@@ -34,6 +37,23 @@ Cliente (WhatsApp) ──► Webhook (src/server.js) ──► Lógica (src/flow
 ```
 
 `src/flow.js` no depende de Node ni de WhatsApp. Por eso la misma lógica se usa en el servidor, en la consola (`npm run chat`) y en el simulador web, y se puede probar con tests unitarios.
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente (WhatsApp)
+    participant M as Meta Cloud API
+    participant S as server.js (webhook)
+    participant F as flow.js (lógica pura)
+    participant D as store.js (data/citas.json)
+    C->>M: Quiero una cita
+    M->>S: POST /webhook con firma X-Hub-Signature-256
+    S->>S: verifica la firma y descarta duplicados
+    S->>F: responder(estado, mensaje, citas)
+    F-->>S: nuevo estado + mensajes (+ cita nueva o cancelada)
+    S->>D: guarda o elimina la cita
+    S->>M: envía botones, listas o texto
+    M->>C: respuesta
+```
 
 ## Probarlo en local sin coste
 
@@ -61,6 +81,20 @@ Meta ofrece un **número de prueba** al crear una app en [Meta for Developers](h
 
 Notas: el token temporal caduca a las 24 horas (se puede generar uno permanente con un usuario del sistema) y las plantillas creadas con el número de prueba no se trasladan a un número real.
 
+## Desplegarlo
+
+El servidor es una app Node.js sin dependencias, así que cabe en cualquier hosting: una VPS, Render, Railway, Fly.io...
+
+```bash
+docker build -t bot-reservas .
+docker run -d -p 3000:3000 --env-file .env -v bot-datos:/data bot-reservas
+```
+
+- El volumen `/data` conserva las citas entre reinicios.
+- `GET /health` responde `ok` (para los controles de salud del hosting).
+- `GET /citas` con la cabecera `Authorization: Bearer <ADMIN_TOKEN>` devuelve la agenda en JSON. Contiene teléfonos de clientes: protégelo y cumple el RGPD en un uso real.
+- Variables de entorno: ver [`.env.example`](.env.example).
+
 ## Adaptarlo a otro negocio
 
 Todo lo específico del negocio está en [`src/config.js`](src/config.js): nombre, dirección, horario, servicios con su duración y precio, número de puestos, preguntas frecuentes y sus traducciones al inglés (campos `en`). No hay que tocar la lógica.
@@ -72,19 +106,22 @@ src/config.js      Datos del negocio (servicios, horario, FAQ)
 src/flow.js        Lógica de la conversación (función pura)
 src/server.js      Webhook: verificación, firma, mensajes entrantes
 src/whatsapp.js    Envío de mensajes con la Cloud API
-src/store.js       Almacenamiento en memoria (demo)
+src/store.js       Citas guardadas en un archivo JSON
 src/consola.js     Chat de prueba en la terminal
 test/              Tests unitarios (node:test)
 index.html         Simulador web de la demo
+Dockerfile         Imagen para desplegar el servidor
 ```
 
 ## Estado y siguientes pasos
 
-Esto es una **demo funcional**, no un producto terminado. Lo que no incluye todavía:
+Esto es una **demo funcional**, no un producto terminado. Qué está hecho y qué falta:
 
-- [ ] Persistencia en base de datos (ahora las citas están en memoria y se pierden al reiniciar).
+- [x] Persistencia básica de las citas en un archivo JSON.
+- [ ] Base de datos para varios negocios o más volumen.
 - [ ] Recordatorios automáticos 24 h antes con plantillas aprobadas de WhatsApp.
-- [ ] Cancelar o cambiar una cita ya reservada desde el chat.
+- [x] Cancelar una cita desde el chat.
+- [ ] Cambiar (reprogramar) una cita desde el chat.
 - [ ] Panel web para que el negocio gestione servicios, horarios y agenda.
 - [ ] Varios negocios en una misma instalación (cada uno con su número).
 - [ ] Aviso al equipo cuando un cliente pide hablar con una persona.
