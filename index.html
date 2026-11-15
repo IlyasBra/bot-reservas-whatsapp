@@ -50,6 +50,9 @@
   #agenda .vacia { color: #9aa5b1; }
   a { color: #0a7f6f; }
   .botones-pie button { margin-top: 6px; background: #fff; border: 1px solid #cbd2d9; border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .idiomas { float: right; display: flex; gap: 4px; margin-top: 4px; }
+  .idiomas button { border: 1px solid #cbd2d9; background: #fff; color: #52606d; border-radius: 6px; padding: 6px 10px; min-height: 34px; font-weight: 600; cursor: pointer; }
+  .idiomas button[aria-pressed="true"] { background: var(--verde); border-color: var(--verde); color: #fff; }
   @keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @media (max-width: 800px) {
     header.pagina { padding: 16px 14px 4px; }
@@ -64,14 +67,15 @@
 </head>
 <body>
 <header class="pagina">
-  <h1>Bot de reservas por WhatsApp · Demo</h1>
-  <p>Prueba cómo un cliente reserva una cita hablando con el bot, sin descargar ninguna app. Este simulador ejecuta la misma lógica de conversación que el bot real.</p>
-  <span class="aviso">Demo con un negocio ficticio (Barbería Nórdica). No está conectada a WhatsApp y no se guarda ningún dato.</span>
+  <div class="idiomas" role="group" aria-label="Idioma / Language"><button type="button" data-lang="es">ES</button><button type="button" data-lang="en">EN</button></div>
+  <h1 data-t="h1">Bot de reservas por WhatsApp · Demo</h1>
+  <p data-t="intro">Prueba cómo un cliente reserva una cita hablando con el bot, sin descargar ninguna app. Este simulador ejecuta la misma lógica de conversación que el bot real.</p>
+  <span class="aviso" data-t="aviso">Demo con un negocio ficticio (Barbería Nórdica). No está conectada a WhatsApp y no se guarda ningún dato.</span>
 </header>
 
 <main>
   <section class="telefono" aria-label="Simulador de chat">
-    <div class="cabecera"><div class="avatar">BN</div><div><b id="nombre-negocio">Barbería Nórdica</b><small>asistente de reservas</small></div></div>
+    <div class="cabecera"><div class="avatar">BN</div><div><b id="nombre-negocio">Barbería Nórdica</b><small data-t="sub">asistente de reservas</small></div></div>
     <div id="chat" aria-live="polite"></div>
     <form id="formulario" autocomplete="off">
       <input id="texto" type="text" placeholder="Escribe un mensaje" aria-label="Mensaje">
@@ -81,18 +85,18 @@
 
   <aside>
     <div class="tarjeta">
-      <h2>Qué estás viendo</h2>
-      <p>A la izquierda, la conversación del cliente. El bot guía la reserva con botones y listas: servicio, día, hora y confirmación. También responde preguntas frecuentes (prueba a escribir "¿cuánto cuesta?" o "¿dónde estáis?") y puede pasar la conversación a una persona.</p>
-      <p>Los huecos se calculan en tiempo real según el horario, la duración del servicio y las citas ya reservadas, así que no se puede reservar dos veces el mismo hueco.</p>
+      <h2 data-t="ver_h">Qué estás viendo</h2>
+      <p data-t="ver_p1">A la izquierda, la conversación del cliente. El bot guía la reserva con botones y listas: servicio, día, hora y confirmación. También responde preguntas frecuentes (prueba a escribir "¿cuánto cuesta?" o "¿dónde estáis?") y puede pasar la conversación a una persona.</p>
+      <p data-t="ver_p2">Los huecos se calculan en tiempo real según el horario, la duración del servicio y las citas ya reservadas, así que no se puede reservar dos veces el mismo hueco.</p>
     </div>
     <div class="tarjeta">
-      <h2>Agenda del negocio (en vivo)</h2>
+      <h2 data-t="agenda_h">Agenda del negocio (en vivo)</h2>
       <ul id="agenda"><li class="vacia">Todavía no hay citas. Reserva una desde el chat.</li></ul>
-      <div class="botones-pie"><button id="reiniciar" type="button">Reiniciar demo</button></div>
+      <div class="botones-pie"><button id="reiniciar" type="button" data-t="reiniciar">Reiniciar demo</button></div>
     </div>
     <div class="tarjeta">
-      <h2>Código y cómo conectarlo</h2>
-      <p>Código abierto, con tests y una guía para conectarlo a WhatsApp con el número de prueba gratuito de Meta: <a id="enlace-repo" href="https://github.com/IlyasBra/bot-reservas-whatsapp">repositorio en GitHub</a>.</p>
+      <h2 data-t="codigo_h">Código y cómo conectarlo</h2>
+      <p data-t="codigo_p">Código abierto, con tests y una guía para conectarlo a WhatsApp con el número de prueba gratuito de Meta: <a id="enlace-repo" href="https://github.com/IlyasBra/bot-reservas-whatsapp">repositorio en GitHub</a>.</p>
     </div>
   </aside>
 </main>
@@ -109,7 +113,51 @@
   let estado, citas;
 
   const pad = (n) => String(n).padStart(2, "0");
-  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const MESES = {
+    es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+    en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  };
+
+  // Textos de la página. El español es el contenido del HTML; aquí solo se guarda el inglés.
+  const REPO = "https://github.com/IlyasBra/bot-reservas-whatsapp";
+  const EN = {
+    titulo: "Demo · WhatsApp booking bot",
+    h1: "WhatsApp booking bot · Demo",
+    intro: "See how a customer books an appointment by chatting with the bot, with no app to download. This simulator runs the same conversation logic as the real bot.",
+    aviso: "Demo with a fictional business (Barbería Nórdica). It is not connected to WhatsApp and no data is stored.",
+    sub: "booking assistant",
+    ver_h: "What you are seeing",
+    ver_p1: "On the left, the customer's conversation. The bot guides the booking with buttons and lists: service, day, time and confirmation. It also answers frequently asked questions (try typing “how much is a haircut?” or “where are you?”) and can hand the conversation over to a person. Type “español” to switch back to Spanish.",
+    ver_p2: "Free slots are calculated in real time from opening hours, service length and the appointments already booked, so the same slot can never be booked twice.",
+    agenda_h: "Business schedule (live)",
+    reiniciar: "Restart demo",
+    codigo_h: "Code and how to connect it",
+    codigo_p: 'Open source, with tests and a guide to connect it to WhatsApp using Meta\'s free test number: <a id="enlace-repo" href="' + REPO + '">GitHub repository</a>.',
+    ph: "Type a message",
+    vacia: "No appointments yet. Book one from the chat.",
+    escribiendo: "typing…",
+    hola: "Hello",
+  };
+  const ES = {};
+  document.querySelectorAll("[data-t]").forEach((e) => (ES[e.dataset.t] = e.innerHTML));
+  Object.assign(ES, {
+    titulo: document.title,
+    ph: "Escribe un mensaje",
+    vacia: "Todavía no hay citas. Reserva una desde el chat.",
+    escribiendo: "escribiendo…",
+    hola: "Hola",
+  });
+  const q = new URLSearchParams(location.search).get("lang");
+  let idioma = q === "en" || q === "es" ? q : (navigator.language || "es").toLowerCase().startsWith("en") ? "en" : "es";
+  const tr = (k) => (idioma === "en" ? EN : ES)[k];
+
+  function aplicarIdioma() {
+    document.documentElement.lang = idioma;
+    document.title = tr("titulo");
+    document.querySelectorAll("[data-t]").forEach((e) => (e.innerHTML = tr(e.dataset.t)));
+    document.getElementById("texto").placeholder = tr("ph");
+    document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === idioma)));
+  }
 
   function bajar() { chat.scrollTop = chat.scrollHeight; }
   function burbuja(texto, quien) {
@@ -165,35 +213,36 @@
 
   function pintarAgenda() {
     agenda.innerHTML = "";
-    if (citas.length === 0) { agenda.innerHTML = '<li class="vacia">Todavía no hay citas. Reserva una desde el chat.</li>'; return; }
+    if (citas.length === 0) { const vacio = document.createElement("li"); vacio.className = "vacia"; vacio.textContent = tr("vacia"); agenda.appendChild(vacio); return; }
     for (const c of [...citas].sort((a, b) => (a.fecha + a.min).localeCompare(b.fecha + b.min))) {
       const s = negocio.servicios.find((x) => x.id === c.servicio);
       const [, m, d] = c.fecha.split("-").map(Number);
       const li = document.createElement("li");
-      li.textContent = d + " " + MESES[m - 1] + " · " + pad(Math.floor(c.min / 60)) + ":" + pad(c.min % 60) + " · " + (s ? s.nombre : c.servicio) + " · " + c.nombre;
+      li.textContent = d + " " + MESES[idioma][m - 1] + " · " + pad(Math.floor(c.min / 60)) + ":" + pad(c.min % 60) + " · " + (s ? s.nombre : c.servicio) + " · " + c.nombre;
       agenda.appendChild(li);
     }
   }
 
   function enviar(entrada, etiqueta) {
     burbuja(etiqueta, "yo");
-    const r = responder(estado, entrada, { citas, nombre: "Alex", telefono: "demo" });
+    const r = responder(estado, entrada, { citas, nombre: "Alex", telefono: "demo", idioma });
     estado = r.estado;
+    if (estado.idioma && estado.idioma !== idioma) { idioma = estado.idioma; aplicarIdioma(); }
     if (r.nuevaCita) { citas.push(r.nuevaCita); pintarAgenda(); }
     const escribiendo = document.createElement("div");
     escribiendo.className = "burbuja bot escribiendo";
-    escribiendo.textContent = "escribiendo…";
+    escribiendo.textContent = tr("escribiendo");
     if (r.mensajes.length) chat.appendChild(escribiendo);
     bajar();
     setTimeout(() => { escribiendo.remove(); r.mensajes.forEach(pintar); }, 450);
   }
 
   function iniciar() {
-    estado = estadoInicial();
+    estado = estadoInicial(idioma);
     citas = [];
     chat.innerHTML = "";
     pintarAgenda();
-    enviar({ tipo: "texto", texto: "hola" }, "Hola");
+    enviar({ tipo: "texto", texto: idioma === "en" ? "hello" : "hola" }, tr("hola"));
   }
 
   document.getElementById("formulario").addEventListener("submit", (e) => {
@@ -205,6 +254,10 @@
     enviar({ tipo: "texto", texto: t }, t);
   });
   document.getElementById("reiniciar").addEventListener("click", iniciar);
+  document.querySelectorAll("[data-lang]").forEach((b) =>
+    b.addEventListener("click", () => { idioma = b.dataset.lang; aplicarIdioma(); iniciar(); }),
+  );
+  aplicarIdioma();
   iniciar();
 </script>
 </body>
