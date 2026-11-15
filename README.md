@@ -11,8 +11,11 @@ Asistente que permite a los clientes de un negocio **reservar cita hablando por 
 
 > La demo usa un negocio **ficticio** (Barbería Nórdica). El simulador ejecuta exactamente la misma lógica de conversación que el bot conectado a WhatsApp.
 
+**In English:** a WhatsApp bot that lets a business's customers book appointments through guided buttons and lists. It is bilingual (Spanish/English): the demo has a language switch, and customers can type “english” or “español” in the chat. The setup guide below is in Spanish.
+
 ## Qué hace
 
+- **Bilingüe español/inglés:** detecta el idioma del primer mensaje y el cliente puede cambiarlo escribiendo “english” o “español”. Las traducciones del negocio están en [`src/config.js`](src/config.js).
 - **Reserva guiada con botones y listas:** servicio → día → hora → confirmación.
 - **Huecos calculados en tiempo real** según el horario, la duración de cada servicio, el número de puestos de trabajo y las citas ya reservadas. No permite reservar dos veces el mismo hueco, y lo vuelve a comprobar al confirmar.
 - **Preguntas frecuentes** (precios, horario, dirección, formas de pago) respondidas sin salir del chat.
@@ -60,7 +63,7 @@ Notas: el token temporal caduca a las 24 horas (se puede generar uno permanente 
 
 ## Adaptarlo a otro negocio
 
-Todo lo específico del negocio está en [`src/config.js`](src/config.js): nombre, dirección, horario, servicios con su duración y precio, número de puestos, preguntas frecuentes. No hay que tocar la lógica.
+Todo lo específico del negocio está en [`src/config.js`](src/config.js): nombre, dirección, horario, servicios con su duración y precio, número de puestos, preguntas frecuentes y sus traducciones al inglés (campos `en`). No hay que tocar la lógica.
 
 ## Estructura
 
