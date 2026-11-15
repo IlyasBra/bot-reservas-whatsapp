@@ -1,0 +1,16 @@
+{
+  "name": "bot-reservas-whatsapp",
+  "version": "0.1.0",
+  "description": "Bot de reservas de citas por WhatsApp (Cloud API de Meta). Demo con un negocio ficticio.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/server.js",
+    "chat": "node src/consola.js",
+    "test": "node --test"
+  }
+}
