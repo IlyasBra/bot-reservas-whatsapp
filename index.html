@@ -2,13 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#075e54">
 <title>Demo · Bot de reservas por WhatsApp</title>
 <link rel="icon" href="data:,">
 <meta name="description" content="Simulador del bot de reservas por WhatsApp. Negocio ficticio: Barbería Nórdica.">
 <style>
   :root { --verde: #075e54; --verde-claro: #dcf8c6; --fondo: #ece5dd; --texto: #1f2933; }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--texto); background: #f4f6f8; }
   header.pagina { max-width: 980px; margin: 0 auto; padding: 28px 20px 8px; }
   header.pagina h1 { margin: 0 0 6px; font-size: 1.6rem; }
@@ -25,18 +27,18 @@
   .bot { background: #fff; align-self: flex-start; border-top-left-radius: 2px; }
   .yo { background: var(--verde-claro); align-self: flex-end; border-top-right-radius: 2px; }
   .acciones { align-self: flex-start; display: flex; flex-direction: column; gap: 5px; width: 82%; }
-  .acciones button { background: #fff; color: #0a7f6f; border: 0; border-radius: 10px; padding: 9px; font-size: .92rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .acciones button { background: #fff; color: #0a7f6f; border: 0; border-radius: 10px; padding: 11px 9px; min-height: 44px; font-size: .95rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
   .acciones button:hover:not(:disabled) { background: #f0fbf8; }
   .acciones button:disabled { color: #9aa5b1; cursor: default; }
   .escribiendo { color: #7b8794; font-style: italic; }
   form { display: flex; gap: 8px; padding: 10px; background: #f0f0f0; }
-  form input { flex: 1; border: 0; border-radius: 20px; padding: 10px 14px; font-size: .95rem; outline: none; }
-  form button { border: 0; background: var(--verde); color: #fff; border-radius: 50%; width: 42px; font-size: 1.1rem; cursor: pointer; }
+  form input { flex: 1; border: 0; border-radius: 20px; padding: 10px 14px; font-size: 1rem; outline: none; min-width: 0; }
+  form button { border: 0; background: var(--verde); color: #fff; border-radius: 50%; width: 44px; height: 44px; flex: none; font-size: 1.1rem; cursor: pointer; }
   .hoja { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
   .hoja.abierta { display: flex; }
-  .hoja .panel { background: #fff; width: min(420px, 100%); max-height: 70vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 8px 0 14px; }
+  .hoja .panel { background: #fff; width: min(420px, 100%); max-height: 70vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 8px 0 calc(14px + env(safe-area-inset-bottom)); }
   .hoja h2 { margin: 0; padding: 12px 18px; font-size: 1rem; color: #52606d; }
-  .hoja .fila { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 11px 18px; font-size: .95rem; cursor: pointer; border-top: 1px solid #eef0f2; }
+  .hoja .fila { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 14px 18px; font-size: 1rem; cursor: pointer; border-top: 1px solid #eef0f2; }
   .hoja .fila:hover { background: #f5f7f9; }
   .hoja .fila small { display: block; color: #7b8794; margin-top: 2px; }
   aside h2 { margin: 0 0 10px; font-size: 1.05rem; }
@@ -49,7 +51,15 @@
   a { color: #0a7f6f; }
   .botones-pie button { margin-top: 6px; background: #fff; border: 1px solid #cbd2d9; border-radius: 8px; padding: 7px 12px; cursor: pointer; }
   @keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } .telefono { height: 78vh; } }
+  @media (max-width: 800px) {
+    header.pagina { padding: 16px 14px 4px; }
+    header.pagina h1 { font-size: 1.25rem; }
+    main { grid-template-columns: 1fr; padding: 10px 12px calc(28px + env(safe-area-inset-bottom)); gap: 16px; }
+    .telefono { height: 82vh; height: 82dvh; max-height: none; min-height: 420px; border-radius: 18px; }
+    .burbuja { max-width: 88%; }
+    .acciones { width: 92%; }
+    .tarjeta { padding: 14px; }
+  }
 </style>
 </head>
 <body>
