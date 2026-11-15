@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo · Bot de reservas por WhatsApp</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Simulador del bot de reservas por WhatsApp. Negocio ficticio: Barbería Nórdica.">
+<style>
+  :root { --verde: #075e54; --verde-claro: #dcf8c6; --fondo: #ece5dd; --texto: #1f2933; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--texto); background: #f4f6f8; }
+  header.pagina { max-width: 980px; margin: 0 auto; padding: 28px 20px 8px; }
+  header.pagina h1 { margin: 0 0 6px; font-size: 1.6rem; }
+  header.pagina p { margin: 4px 0; color: #52606d; line-height: 1.5; }
+  .aviso { display: inline-block; margin-top: 8px; padding: 6px 10px; background: #fff7e0; border: 1px solid #f0d58a; border-radius: 8px; font-size: .85rem; color: #6b5300; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px 20px 40px; display: grid; grid-template-columns: 380px 1fr; gap: 28px; align-items: start; }
+  .telefono { background: #fff; border-radius: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.15); overflow: hidden; display: flex; flex-direction: column; height: 640px; max-height: 85vh; }
+  .cabecera { background: var(--verde); color: #fff; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: #25d366; display: grid; place-items: center; font-weight: 700; }
+  .cabecera b { display: block; font-size: .98rem; }
+  .cabecera small { opacity: .85; }
+  #chat { flex: 1; overflow-y: auto; padding: 14px 12px; background: var(--fondo); display: flex; flex-direction: column; gap: 6px; }
+  .burbuja { max-width: 82%; padding: 8px 11px; border-radius: 10px; font-size: .93rem; line-height: 1.4; white-space: pre-wrap; box-shadow: 0 1px 1px rgba(0,0,0,.12); animation: entra .18s ease-out; }
+  .bot { background: #fff; align-self: flex-start; border-top-left-radius: 2px; }
+  .yo { background: var(--verde-claro); align-self: flex-end; border-top-right-radius: 2px; }
+  .acciones { align-self: flex-start; display: flex; flex-direction: column; gap: 5px; width: 82%; }
+  .acciones button { background: #fff; color: #0a7f6f; border: 0; border-radius: 10px; padding: 9px; font-size: .92rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .acciones button:hover:not(:disabled) { background: #f0fbf8; }
+  .acciones button:disabled { color: #9aa5b1; cursor: default; }
+  .escribiendo { color: #7b8794; font-style: italic; }
+  form { display: flex; gap: 8px; padding: 10px; background: #f0f0f0; }
+  form input { flex: 1; border: 0; border-radius: 20px; padding: 10px 14px; font-size: .95rem; outline: none; }
+  form button { border: 0; background: var(--verde); color: #fff; border-radius: 50%; width: 42px; font-size: 1.1rem; cursor: pointer; }
+  .hoja { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+  .hoja.abierta { display: flex; }
+  .hoja .panel { background: #fff; width: min(420px, 100%); max-height: 70vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 8px 0 14px; }
+  .hoja h2 { margin: 0; padding: 12px 18px; font-size: 1rem; color: #52606d; }
+  .hoja .fila { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 11px 18px; font-size: .95rem; cursor: pointer; border-top: 1px solid #eef0f2; }
+  .hoja .fila:hover { background: #f5f7f9; }
+  .hoja .fila small { display: block; color: #7b8794; margin-top: 2px; }
+  aside h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  .tarjeta { background: #fff; border-radius: 14px; padding: 16px 18px; box-shadow: 0 2px 8px rgba(0,0,0,.07); margin-bottom: 16px; }
+  .tarjeta p { margin: 6px 0; color: #52606d; line-height: 1.5; font-size: .93rem; }
+  #agenda { list-style: none; margin: 0; padding: 0; }
+  #agenda li { padding: 9px 0; border-top: 1px solid #eef0f2; font-size: .93rem; }
+  #agenda li:first-child { border-top: 0; }
+  #agenda .vacia { color: #9aa5b1; }
+  a { color: #0a7f6f; }
+  .botones-pie button { margin-top: 6px; background: #fff; border: 1px solid #cbd2d9; border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  @keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } .telefono { height: 78vh; } }
+</style>
+</head>
+<body>
+<header class="pagina">
+  <h1>Bot de reservas por WhatsApp · Demo</h1>
+  <p>Prueba cómo un cliente reserva una cita hablando con el bot, sin descargar ninguna app. Este simulador ejecuta la misma lógica de conversación que el bot real.</p>
+  <span class="aviso">Demo con un negocio ficticio (Barbería Nórdica). No está conectada a WhatsApp y no se guarda ningún dato.</span>
+</header>
+
+<main>
+  <section class="telefono" aria-label="Simulador de chat">
+    <div class="cabecera"><div class="avatar">BN</div><div><b id="nombre-negocio">Barbería Nórdica</b><small>asistente de reservas</small></div></div>
+    <div id="chat" aria-live="polite"></div>
+    <form id="formulario" autocomplete="off">
+      <input id="texto" type="text" placeholder="Escribe un mensaje" aria-label="Mensaje">
+      <button type="submit" aria-label="Enviar">&#10148;</button>
+    </form>
+  </section>
+
+  <aside>
+    <div class="tarjeta">
+      <h2>Qué estás viendo</h2>
+      <p>A la izquierda, la conversación del cliente. El bot guía la reserva con botones y listas: servicio, día, hora y confirmación. También responde preguntas frecuentes (prueba a escribir "¿cuánto cuesta?" o "¿dónde estáis?") y puede pasar la conversación a una persona.</p>
+      <p>Los huecos se calculan en tiempo real según el horario, la duración del servicio y las citas ya reservadas, así que no se puede reservar dos veces el mismo hueco.</p>
+    </div>
+    <div class="tarjeta">
+      <h2>Agenda del negocio (en vivo)</h2>
+      <ul id="agenda"><li class="vacia">Todavía no hay citas. Reserva una desde el chat.</li></ul>
+      <div class="botones-pie"><button id="reiniciar" type="button">Reiniciar demo</button></div>
+    </div>
+    <div class="tarjeta">
+      <h2>Código y cómo conectarlo</h2>
+      <p>Código abierto, con tests y una guía para conectarlo a WhatsApp con el número de prueba gratuito de Meta: <a id="enlace-repo" href="https://github.com/IlyasBra/bot-reservas-whatsapp">repositorio en GitHub</a>.</p>
+    </div>
+  </aside>
+</main>
+
+<div class="hoja" id="hoja" role="dialog" aria-modal="true"><div class="panel"><h2 id="hoja-titulo"></h2><div id="hoja-filas"></div></div></div>
+
+<script type="module">
+  import { responder, estadoInicial } from "./src/flow.js";
+  import { negocio } from "./src/config.js";
+
+  const chat = document.getElementById("chat");
+  const hoja = document.getElementById("hoja");
+  const agenda = document.getElementById("agenda");
+  let estado, citas;
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+  function bajar() { chat.scrollTop = chat.scrollHeight; }
+  function burbuja(texto, quien) {
+    const b = document.createElement("div");
+    b.className = "burbuja " + quien;
+    b.textContent = texto;
+    chat.appendChild(b);
+    bajar();
+  }
+
+  function pintar(msg) {
+    burbuja(msg.texto, "bot");
+    if (msg.tipo === "botones") {
+      const caja = document.createElement("div");
+      caja.className = "acciones";
+      for (const b of msg.botones) {
+        const el = document.createElement("button");
+        el.textContent = b.titulo;
+        el.addEventListener("click", () => { caja.querySelectorAll("button").forEach((x) => (x.disabled = true)); enviar({ tipo: "boton", id: b.id }, b.titulo); });
+        caja.appendChild(el);
+      }
+      chat.appendChild(caja);
+    }
+    if (msg.tipo === "lista") {
+      const caja = document.createElement("div");
+      caja.className = "acciones";
+      const abrir = document.createElement("button");
+      abrir.textContent = "☰ " + msg.boton;
+      abrir.addEventListener("click", () => abrirHoja(msg, caja));
+      caja.appendChild(abrir);
+      chat.appendChild(caja);
+    }
+    bajar();
+  }
+
+  function abrirHoja(msg, caja) {
+    document.getElementById("hoja-titulo").textContent = msg.boton;
+    const filas = document.getElementById("hoja-filas");
+    filas.innerHTML = "";
+    for (const f of msg.filas) {
+      const el = document.createElement("button");
+      el.className = "fila";
+      el.textContent = f.titulo;
+      if (f.descripcion) { const s = document.createElement("small"); s.textContent = f.descripcion; el.appendChild(s); }
+      el.addEventListener("click", () => { cerrarHoja(); caja.querySelectorAll("button").forEach((x) => (x.disabled = true)); enviar({ tipo: "boton", id: f.id }, f.titulo); });
+      filas.appendChild(el);
+    }
+    hoja.classList.add("abierta");
+  }
+  function cerrarHoja() { hoja.classList.remove("abierta"); }
+  hoja.addEventListener("click", (e) => { if (e.target === hoja) cerrarHoja(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarHoja(); });
+
+  function pintarAgenda() {
+    agenda.innerHTML = "";
+    if (citas.length === 0) { agenda.innerHTML = '<li class="vacia">Todavía no hay citas. Reserva una desde el chat.</li>'; return; }
+    for (const c of [...citas].sort((a, b) => (a.fecha + a.min).localeCompare(b.fecha + b.min))) {
+      const s = negocio.servicios.find((x) => x.id === c.servicio);
+      const [, m, d] = c.fecha.split("-").map(Number);
+      const li = document.createElement("li");
+      li.textContent = d + " " + MESES[m - 1] + " · " + pad(Math.floor(c.min / 60)) + ":" + pad(c.min % 60) + " · " + (s ? s.nombre : c.servicio) + " · " + c.nombre;
+      agenda.appendChild(li);
+    }
+  }
+
+  function enviar(entrada, etiqueta) {
+    burbuja(etiqueta, "yo");
+    const r = responder(estado, entrada, { citas, nombre: "Alex", telefono: "demo" });
+    estado = r.estado;
+    if (r.nuevaCita) { citas.push(r.nuevaCita); pintarAgenda(); }
+    const escribiendo = document.createElement("div");
+    escribiendo.className = "burbuja bot escribiendo";
+    escribiendo.textContent = "escribiendo…";
+    if (r.mensajes.length) chat.appendChild(escribiendo);
+    bajar();
+    setTimeout(() => { escribiendo.remove(); r.mensajes.forEach(pintar); }, 450);
+  }
+
+  function iniciar() {
+    estado = estadoInicial();
+    citas = [];
+    chat.innerHTML = "";
+    pintarAgenda();
+    enviar({ tipo: "texto", texto: "hola" }, "Hola");
+  }
+
+  document.getElementById("formulario").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const campo = document.getElementById("texto");
+    const t = campo.value.trim();
+    if (!t) return;
+    campo.value = "";
+    enviar({ tipo: "texto", texto: t }, t);
+  });
+  document.getElementById("reiniciar").addEventListener("click", iniciar);
+  iniciar();
+</script>
+</body>
+</html>
