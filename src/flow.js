@@ -7,21 +7,119 @@
 //   { tipo: "texto",   texto }
 //   { tipo: "botones", texto, botones: [{ id, titulo }] }            (máx. 3 botones)
 //   { tipo: "lista",   texto, boton, filas: [{ id, titulo, descripcion? }] }  (máx. 10 filas)
+//
+// Idiomas: español ("es") e inglés ("en"). El idioma se guarda en el estado de la conversación.
+// Se elige por este orden: el que ya tenga la conversación, el detectado en el primer mensaje
+// (si está escrito en inglés), ctx.idioma y negocio.idioma. El cliente puede cambiarlo escribiendo
+// "english" o "español".
 
 import { negocio as negocioPorDefecto } from "./config.js";
 
-const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-const MESES = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-];
+const TEXTOS = {
+  es: {
+    dias: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
+    meses: [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    ],
+    fecha: (dia, n, mes) => dia + " " + n + " de " + mes,
+    franjas: { man: "Mañana", tar: "Tarde", ult: "Última hora" },
+    btnReservar: "Reservar cita",
+    btnInfo: "Precios y horario",
+    btnHumano: "Hablar con alguien",
+    saludo: (n) => "¡Hola! Soy el asistente de " + n + ".",
+    queHacer: "¿Qué quieres hacer?",
+    servicios: "Servicios",
+    horario: "Horario",
+    quieresReservar: "¿Quieres reservar una cita?",
+    derivar: (n) =>
+      "De acuerdo, te atenderá una persona de " + n + ' por este mismo chat. Si quieres volver al asistente, escribe "menu".',
+    queServicio: "¿Qué servicio necesitas?",
+    verServicios: "Ver servicios",
+    sinHuecos: 'Ahora mismo no tengo huecos libres en los próximos días. Escribe "persona" y te ayudamos.',
+    otraCosa: "¿Quieres hacer otra cosa?",
+    queDia: (s) => "Perfecto: " + s + ". ¿Qué día te viene bien?",
+    verDias: "Ver días",
+    huecos: (n) => n + (n === 1 ? " hueco libre" : " huecos libres"),
+    cuando: "¿Cuándo prefieres?",
+    huecosEl: (f) => "Huecos libres el " + f + ":",
+    verHoras: "Ver horas",
+    resumen: (s, f, h, n) =>
+      "Resumen de tu cita:\n• " + s + "\n• " + f + " a las " + h + "\n• " + n + "\n\n¿Confirmo la reserva?",
+    btnConfirmar: "Confirmar",
+    btnCambiar: "Cambiar",
+    btnCancelar: "Cancelar",
+    ocupado: "Vaya, ese hueco se acaba de ocupar. Elige otro, por favor.",
+    reservado: (nombre, f, h, n, dir) =>
+      "✅ ¡Reservado" + nombre + "! Te esperamos el " + f + " a las " + h + " en " + n + " (" + dir +
+      ').\n\nSi necesitas cambiarla, escribe "persona" y te atendemos.',
+    noPasa: "Vale, no pasa nada.",
+    loDejamos: "Vale, lo dejamos aquí.",
+    noEntiendo: "No estoy seguro de haberte entendido.",
+    idiomaCambiado: "Perfecto, seguimos en español.",
+    algoMas: "¿Quieres hacer algo más?",
+  },
+  en: {
+    dias: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    meses: [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ],
+    fecha: (dia, n, mes) => dia + ", " + mes + " " + n,
+    franjas: { man: "Morning", tar: "Afternoon", ult: "Evening" },
+    btnReservar: "Book appointment",
+    btnInfo: "Prices & hours",
+    btnHumano: "Talk to someone",
+    saludo: (n) => "Hi! I'm the assistant of " + n + ".",
+    queHacer: "What would you like to do?",
+    servicios: "Services",
+    horario: "Hours",
+    quieresReservar: "Would you like to book an appointment?",
+    derivar: (n) =>
+      "Okay, a person from " + n + ' will help you in this same chat. To go back to the assistant, type "menu".',
+    queServicio: "Which service do you need?",
+    verServicios: "See services",
+    sinHuecos: 'I have no free slots in the coming days right now. Type "person" and we\'ll help you.',
+    otraCosa: "Would you like to do something else?",
+    queDia: (s) => "Great: " + s + ". Which day works for you?",
+    verDias: "See days",
+    huecos: (n) => n + (n === 1 ? " free slot" : " free slots"),
+    cuando: "When do you prefer?",
+    huecosEl: (f) => "Free slots on " + f + ":",
+    verHoras: "See times",
+    resumen: (s, f, h, n) =>
+      "Your appointment:\n• " + s + "\n• " + f + " at " + h + "\n• " + n + "\n\nShall I confirm the booking?",
+    btnConfirmar: "Confirm",
+    btnCambiar: "Change",
+    btnCancelar: "Cancel",
+    ocupado: "Sorry, that slot was just taken. Please pick another one.",
+    reservado: (nombre, f, h, n, dir) =>
+      "✅ Booked" + nombre + "! See you on " + f + " at " + h + " at " + n + " (" + dir +
+      ').\n\nIf you need to change it, type "person" and we\'ll help you.',
+    noPasa: "No problem.",
+    loDejamos: "Okay, let's leave it here.",
+    noEntiendo: "I'm not sure I understood you.",
+    idiomaCambiado: "Sure, let's continue in English.",
+    algoMas: "Would you like to do anything else?",
+  },
+};
 
 const FRANJAS = {
-  man: { nombre: "Mañana", desde: 0, hasta: 13 * 60 },
-  tar: { nombre: "Tarde", desde: 13 * 60, hasta: 17 * 60 },
-  ult: { nombre: "Última hora", desde: 17 * 60, hasta: 24 * 60 },
+  man: { desde: 0, hasta: 13 * 60 },
+  tar: { desde: 13 * 60, hasta: 17 * 60 },
+  ult: { desde: 17 * 60, hasta: 24 * 60 },
 };
 const MAX_FILAS = 10;
+
+// Palabras clave de las intenciones (en minúsculas y sin tildes), en español e inglés.
+const CANCELAR = ["cancel", "salir", "exit"];
+const PERSONA = ["person", "human", "agent", "llamar", "hablar con", "speak to", "speak with", "talk to", "call me"];
+const RESERVA = ["cita", "reserv", "hueco", "turno", "cortar", "book", "appointment", "slot", "haircut"];
+const SALUDO = ["hola", "buenas", "buenos", "menu", "inicio", "ayuda", "hello", "hey", "good morning", "good evening", "help", "start"];
+const PIDE_INGLES = ["english", "ingles"];
+const PIDE_ESPANOL = ["espanol", "spanish", "castellano"];
+const PARECE_INGLES =
+  /\b(hello|hi|hey|book|appointment|price|prices|cost|how much|hours|open|where|address|haircut|beard|please|do you|can i|i want|i would|good morning|good evening|english)\b/;
 
 // ---------- utilidades de fecha y texto ----------
 
@@ -32,18 +130,22 @@ const deIso = (iso) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d, 12);
 };
-const fechaLarga = (iso) => {
+const fechaLarga = (iso, l) => {
   const d = deIso(iso);
-  return DIAS[d.getDay()] + " " + d.getDate() + " de " + MESES[d.getMonth()];
+  return l.fecha(l.dias[d.getDay()], d.getDate(), l.meses[d.getMonth()]);
 };
-const fechaCorta = (iso) => {
+const fechaCorta = (iso, l) => {
   const d = deIso(iso);
-  return DIAS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MESES[d.getMonth()].slice(0, 3);
+  return l.dias[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + l.meses[d.getMonth()].slice(0, 3);
 };
 const esFecha = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s ?? "");
 const normalizar = (t) =>
   t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 const contiene = (t, palabras) => palabras.some((p) => t.includes(p));
+
+// Texto del negocio en el idioma del cliente (con el español como base).
+const campo = (c, clave) => (c.idioma !== "es" && c.negocio[c.idioma]?.[clave]) || c.negocio[clave];
+const nombreServicio = (s, c) => (c.idioma !== "es" && s[c.idioma]) || s.nombre;
 
 // ---------- disponibilidad ----------
 
@@ -84,77 +186,68 @@ const txt = (texto) => ({ tipo: "texto", texto });
 const btns = (texto, botones) => ({ tipo: "botones", texto, botones });
 const lst = (texto, boton, filas) => ({ tipo: "lista", texto, boton, filas });
 
-const menuMsg = (texto) =>
+const menuMsg = (texto, l) =>
   btns(texto, [
-    { id: "reservar", titulo: "Reservar cita" },
-    { id: "info", titulo: "Precios y horario" },
-    { id: "humano", titulo: "Hablar con alguien" },
+    { id: "reservar", titulo: l.btnReservar },
+    { id: "info", titulo: l.btnInfo },
+    { id: "humano", titulo: l.btnHumano },
   ]);
 
-export const estadoInicial = () => ({ paso: "inicio" });
+export const estadoInicial = (idioma) => (idioma ? { paso: "inicio", idioma } : { paso: "inicio" });
 
 const buscarServicio = (c, id) => c.negocio.servicios.find((s) => s.id === id);
 
 // ---------- pasos de la conversación ----------
 
 function irAlMenu(c, intro) {
-  const saludo = "¡Hola! Soy el asistente de " + c.negocio.nombre + ".";
-  return { estado: estadoInicial(), mensajes: [menuMsg((intro ?? saludo) + " ¿Qué quieres hacer?")] };
+  const l = c.l;
+  return { estado: estadoInicial(), mensajes: [menuMsg((intro ?? l.saludo(c.negocio.nombre)) + " " + l.queHacer, l)] };
 }
 
 function info(c) {
   const n = c.negocio;
-  const servicios = n.servicios.map((s) => "• " + s.nombre + " (" + s.minutos + " min): " + s.precio + " €").join("\n");
+  const l = c.l;
+  const servicios = n.servicios
+    .map((s) => "• " + nombreServicio(s, c) + " (" + s.minutos + " min): " + s.precio + " €")
+    .join("\n");
   const texto =
-    "*" + n.nombre + "*\n📍 " + n.direccion + "\n\n*Servicios*\n" + servicios +
-    "\n\n*Horario*\n" + n.horarioTexto + "\n\n" + n.pagos;
-  return { estado: estadoInicial(), mensajes: [txt(texto), menuMsg("¿Quieres reservar una cita?")] };
+    "*" + n.nombre + "*\n📍 " + n.direccion + "\n\n*" + l.servicios + "*\n" + servicios +
+    "\n\n*" + l.horario + "*\n" + campo(c, "horarioTexto") + "\n\n" + campo(c, "pagos");
+  return { estado: estadoInicial(), mensajes: [txt(texto), menuMsg(l.quieresReservar, l)] };
 }
 
 function derivar(c) {
-  return {
-    estado: { paso: "humano" },
-    mensajes: [
-      txt(
-        "De acuerdo, te atenderá una persona de " + c.negocio.nombre +
-          ' por este mismo chat. Si quieres volver al asistente, escribe "menu".',
-      ),
-    ],
-  };
+  return { estado: { paso: "humano" }, mensajes: [txt(c.l.derivar(c.negocio.nombre))] };
 }
 
 function pedirServicio(c) {
   const filas = c.negocio.servicios.map((s) => ({
     id: "srv:" + s.id,
-    titulo: s.nombre,
+    titulo: nombreServicio(s, c),
     descripcion: s.minutos + " min · " + s.precio + " €",
   }));
-  return { estado: { paso: "servicio" }, mensajes: [lst("¿Qué servicio necesitas?", "Ver servicios", filas)] };
+  return { estado: { paso: "servicio" }, mensajes: [lst(c.l.queServicio, c.l.verServicios, filas)] };
 }
 
 function pedirDia(c, servicio) {
+  const l = c.l;
   const dias = diasConHuecos(servicio, c, 7);
   if (dias.length === 0) {
-    return {
-      estado: estadoInicial(),
-      mensajes: [
-        txt("Ahora mismo no tengo huecos libres en los próximos días. Escribe \"persona\" y te ayudamos."),
-        menuMsg("¿Quieres hacer otra cosa?"),
-      ],
-    };
+    return { estado: estadoInicial(), mensajes: [txt(l.sinHuecos), menuMsg(l.otraCosa, l)] };
   }
   const filas = dias.map((d) => ({
     id: "dia:" + d.iso,
-    titulo: fechaCorta(d.iso),
-    descripcion: d.n + (d.n === 1 ? " hueco libre" : " huecos libres"),
+    titulo: fechaCorta(d.iso, l),
+    descripcion: l.huecos(d.n),
   }));
   return {
     estado: { paso: "dia", servicio: servicio.id },
-    mensajes: [lst("Perfecto: " + servicio.nombre + ". ¿Qué día te viene bien?", "Ver días", filas)],
+    mensajes: [lst(l.queDia(nombreServicio(servicio, c)), l.verDias, filas)],
   };
 }
 
 function pedirHora(estado, c, servicio, fecha, franja) {
+  const l = c.l;
   let huecos = huecosDelDia(fecha, servicio, c);
   if (huecos.length === 0) return pedirDia(c, servicio);
 
@@ -162,10 +255,10 @@ function pedirHora(estado, c, servicio, fecha, franja) {
   if (!franja && huecos.length > MAX_FILAS) {
     const botones = Object.entries(FRANJAS)
       .filter(([, f]) => huecos.some((h) => h >= f.desde && h < f.hasta))
-      .map(([id, f]) => ({ id: "fr:" + id, titulo: f.nombre }));
+      .map(([id]) => ({ id: "fr:" + id, titulo: l.franjas[id] }));
     return {
       estado: { ...estado, paso: "franja", servicio: servicio.id, fecha },
-      mensajes: [btns(fechaLarga(fecha) + ". ¿Cuándo prefieres?", botones)],
+      mensajes: [btns(fechaLarga(fecha, l) + ". " + l.cuando, botones)],
     };
   }
   if (franja) {
@@ -175,21 +268,20 @@ function pedirHora(estado, c, servicio, fecha, franja) {
   const filas = huecos.slice(0, MAX_FILAS).map((h) => ({ id: "hora:" + h, titulo: aHora(h) }));
   return {
     estado: { ...estado, paso: "hora", servicio: servicio.id, fecha },
-    mensajes: [lst("Huecos libres el " + fechaLarga(fecha) + ":", "Ver horas", filas)],
+    mensajes: [lst(l.huecosEl(fechaLarga(fecha, l)), l.verHoras, filas)],
   };
 }
 
 function pedirConfirmacion(estado, c, servicio, fecha, min) {
-  const texto =
-    "Resumen de tu cita:\n• " + servicio.nombre + " (" + servicio.minutos + " min, " + servicio.precio + " €)\n• " +
-    fechaLarga(fecha) + " a las " + aHora(min) + "\n• " + c.negocio.nombre + "\n\n¿Confirmo la reserva?";
+  const l = c.l;
+  const detalle = nombreServicio(servicio, c) + " (" + servicio.minutos + " min, " + servicio.precio + " €)";
   return {
     estado: { ...estado, paso: "confirmar", servicio: servicio.id, fecha, min },
     mensajes: [
-      btns(texto, [
-        { id: "ok", titulo: "Confirmar" },
-        { id: "cambiar", titulo: "Cambiar" },
-        { id: "no", titulo: "Cancelar" },
+      btns(l.resumen(detalle, fechaLarga(fecha, l), aHora(min), c.negocio.nombre), [
+        { id: "ok", titulo: l.btnConfirmar },
+        { id: "cambiar", titulo: l.btnCambiar },
+        { id: "no", titulo: l.btnCancelar },
       ]),
     ],
   };
@@ -202,7 +294,7 @@ function confirmar(estado, c) {
   // Se vuelve a comprobar el hueco por si alguien lo ha reservado mientras tanto.
   if (!huecosDelDia(estado.fecha, servicio, c).includes(estado.min)) {
     const r = pedirHora(estado, c, servicio, estado.fecha);
-    r.mensajes.unshift(txt("Vaya, ese hueco se acaba de ocupar. Elige otro, por favor."));
+    r.mensajes.unshift(txt(c.l.ocupado));
     return r;
   }
   const nuevaCita = {
@@ -219,8 +311,13 @@ function confirmar(estado, c) {
     nuevaCita,
     mensajes: [
       txt(
-        "✅ ¡Reservado" + primerNombre + "! Te esperamos el " + fechaLarga(estado.fecha) + " a las " +
-          aHora(estado.min) + " en " + c.negocio.nombre + " (" + c.negocio.direccion + ').\n\nSi necesitas cambiarla, escribe "persona" y te atendemos.',
+        c.l.reservado(
+          primerNombre,
+          fechaLarga(estado.fecha, c.l),
+          aHora(estado.min),
+          c.negocio.nombre,
+          c.negocio.direccion,
+        ),
       ),
     ],
   };
@@ -255,7 +352,7 @@ function porId(estado, id, c) {
     case "ok":
       return confirmar(estado, c);
     case "no":
-      return irAlMenu(c, "Vale, no pasa nada.");
+      return irAlMenu(c, c.l.noPasa);
     default:
       return irAlMenu(c);
   }
@@ -264,26 +361,40 @@ function porId(estado, id, c) {
 /**
  * @param {object} estado  Estado de la conversación (empezar con estadoInicial()).
  * @param {{tipo:"texto",texto:string}|{tipo:"boton",id:string}} entrada
- * @param {object} [ctx]   { ahora, citas, negocio, nombre, telefono }
+ * @param {object} [ctx]   { ahora, citas, negocio, nombre, telefono, idioma }
  * @returns {{estado:object, mensajes:object[], nuevaCita?:object}}
  */
 export function responder(estado, entrada, ctx = {}) {
-  const c = { ahora: new Date(), citas: [], negocio: negocioPorDefecto, nombre: "", telefono: "", ...ctx };
+  const base = { ahora: new Date(), citas: [], negocio: negocioPorDefecto, nombre: "", telefono: "", ...ctx };
   const est = estado ?? estadoInicial();
+  const t = entrada.tipo === "boton" ? "" : normalizar(entrada.texto ?? "");
 
-  if (entrada.tipo === "boton") return porId(est, entrada.id, c);
-
-  const t = normalizar(entrada.texto ?? "");
   // Con una persona al mando, el bot guarda silencio salvo que el cliente pida volver.
-  if (est.paso === "humano" && !contiene(t, ["menu", "bot"])) return { estado: est, mensajes: [] };
+  if (est.paso === "humano" && entrada.tipo !== "boton" && !contiene(t, ["menu", "bot"])) {
+    return { estado: est, mensajes: [] };
+  }
 
-  if (contiene(t, ["cancelar", "salir"])) return irAlMenu(c, "Vale, lo dejamos aquí.");
-  if (contiene(t, ["persona", "humano", "agente", "llamar", "hablar con"])) return derivar(c);
+  let idioma = est.idioma ?? (PARECE_INGLES.test(t) ? "en" : undefined) ?? base.idioma ?? base.negocio.idioma ?? "es";
+  const pideInglesOEspanol = contiene(t, PIDE_INGLES) ? "en" : contiene(t, PIDE_ESPANOL) ? "es" : null;
+  if (pideInglesOEspanol) idioma = pideInglesOEspanol;
+  if (!TEXTOS[idioma]) idioma = "es";
 
-  const faq = c.negocio.faq.find((f) => contiene(t, f.palabras));
-  if (faq) return { estado: estadoInicial(), mensajes: [txt(faq.respuesta), menuMsg("¿Quieres hacer algo más?")] };
+  const c = { ...base, idioma, l: TEXTOS[idioma] };
+  const con = (r) => ({ ...r, estado: { ...r.estado, idioma } });
 
-  if (contiene(t, ["cita", "reserv", "hueco", "turno", "cortar"])) return pedirServicio(c);
-  if (contiene(t, ["hola", "buenas", "buenos", "menu", "inicio", "ayuda"])) return irAlMenu(c);
-  return irAlMenu(c, "No estoy seguro de haberte entendido.");
+  if (entrada.tipo === "boton") return con(porId(est, entrada.id, c));
+  if (pideInglesOEspanol) return con(irAlMenu(c, c.l.idiomaCambiado));
+
+  if (contiene(t, CANCELAR)) return con(irAlMenu(c, c.l.loDejamos));
+  if (contiene(t, PERSONA)) return con(derivar(c));
+
+  const faq = c.negocio.faq.find((f) => contiene(t, [...f.palabras, ...(f.en?.palabras ?? [])]));
+  if (faq) {
+    const respuesta = (idioma !== "es" && faq[idioma]?.respuesta) || faq.respuesta;
+    return con({ estado: estadoInicial(), mensajes: [txt(respuesta), menuMsg(c.l.algoMas, c.l)] });
+  }
+
+  if (contiene(t, RESERVA)) return con(pedirServicio(c));
+  if (contiene(t, SALUDO) || t.split(/\W+/).includes("hi")) return con(irAlMenu(c));
+  return con(irAlMenu(c, c.l.noEntiendo));
 }
