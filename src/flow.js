@@ -52,11 +52,17 @@ const TEXTOS = {
     ocupado: "Vaya, ese hueco se acaba de ocupar. Elige otro, por favor.",
     reservado: (nombre, f, h, n, dir) =>
       "✅ ¡Reservado" + nombre + "! Te esperamos el " + f + " a las " + h + " en " + n + " (" + dir +
-      ').\n\nSi necesitas cambiarla, escribe "persona" y te atendemos.',
+      ').\n\nPara cancelarla escribe "cancelar cita"; para cambiarla, escribe "persona".',
     noPasa: "Vale, no pasa nada.",
     loDejamos: "Vale, lo dejamos aquí.",
     noEntiendo: "No estoy seguro de haberte entendido.",
     idiomaCambiado: "Perfecto, seguimos en español.",
+    miCita: (s, f, h) => "Tu próxima cita:\n• " + s + "\n• " + f + " a las " + h + "\n\n¿Quieres cancelarla?",
+    sinCitas: "No tienes ninguna cita próxima con este número.",
+    btnAnular: "Cancelar cita",
+    btnMantener: "Mantenerla",
+    cancelada: (f, h) => "Hecho, tu cita del " + f + " a las " + h + " queda cancelada. ¡Gracias por avisar!",
+    mantenida: "Perfecto, tu cita sigue en pie.",
     algoMas: "¿Quieres hacer algo más?",
   },
   en: {
@@ -95,11 +101,17 @@ const TEXTOS = {
     ocupado: "Sorry, that slot was just taken. Please pick another one.",
     reservado: (nombre, f, h, n, dir) =>
       "✅ Booked" + nombre + "! See you on " + f + " at " + h + " at " + n + " (" + dir +
-      ').\n\nIf you need to change it, type "person" and we\'ll help you.',
+      ').\n\nTo cancel it, type "cancel appointment"; to change it, type "person".',
     noPasa: "No problem.",
     loDejamos: "Okay, let's leave it here.",
     noEntiendo: "I'm not sure I understood you.",
     idiomaCambiado: "Sure, let's continue in English.",
+    miCita: (s, f, h) => "Your next appointment:\n• " + s + "\n• " + f + " at " + h + "\n\nWould you like to cancel it?",
+    sinCitas: "You have no upcoming appointments with this number.",
+    btnAnular: "Cancel appointment",
+    btnMantener: "Keep it",
+    cancelada: (f, h) => "Done, your appointment on " + f + " at " + h + " is cancelled. Thanks for letting us know!",
+    mantenida: "Great, your appointment stays as it is.",
     algoMas: "Would you like to do anything else?",
   },
 };
@@ -118,6 +130,7 @@ const RESERVA = ["cita", "reserv", "hueco", "turno", "cortar", "book", "appointm
 const SALUDO = ["hola", "buenas", "buenos", "menu", "inicio", "ayuda", "hello", "hey", "good morning", "good evening", "help", "start"];
 const PIDE_INGLES = ["english", "ingles"];
 const PIDE_ESPANOL = ["espanol", "spanish", "castellano"];
+const MI_CITA = ["mi cita", "mis citas", "cancelar cita", "anular", "cancel appointment", "cancel booking", "cancel my", "my appointment", "my booking"];
 const PARECE_INGLES =
   /\b(hello|hi|hey|book|appointment|price|prices|cost|how much|hours|open|where|address|haircut|beard|please|do you|can i|i want|i would|good morning|good evening|english)\b/;
 
@@ -218,6 +231,47 @@ function info(c) {
 
 function derivar(c) {
   return { estado: { paso: "humano" }, mensajes: [txt(c.l.derivar(c.negocio.nombre))] };
+}
+
+// Próxima cita (aún no pasada) de quien escribe, identificado por su teléfono.
+function proximaCita(c) {
+  if (!c.telefono) return undefined;
+  const hoy = aIso(c.ahora);
+  const ahoraMin = c.ahora.getHours() * 60 + c.ahora.getMinutes();
+  return c.citas
+    .filter((x) => x.telefono === c.telefono && (x.fecha > hoy || (x.fecha === hoy && x.min + x.minutos > ahoraMin)))
+    .sort((a, b) => (a.fecha === b.fecha ? a.min - b.min : a.fecha < b.fecha ? -1 : 1))[0];
+}
+
+function miCita(c) {
+  const l = c.l;
+  const cita = proximaCita(c);
+  if (!cita) return { estado: estadoInicial(), mensajes: [txt(l.sinCitas), menuMsg(l.queHacer, l)] };
+  const servicio = buscarServicio(c, cita.servicio);
+  const detalle = servicio ? nombreServicio(servicio, c) : cita.servicio;
+  return {
+    estado: { paso: "anular", fecha: cita.fecha, min: cita.min },
+    mensajes: [
+      btns(l.miCita(detalle, fechaLarga(cita.fecha, l), aHora(cita.min)), [
+        { id: "anular", titulo: l.btnAnular },
+        { id: "mantener", titulo: l.btnMantener },
+      ]),
+    ],
+  };
+}
+
+// Solo se puede cancelar una cita del propio teléfono y que se haya mostrado antes (paso "anular").
+function anular(estado, c) {
+  const cita =
+    estado.paso === "anular" && c.telefono
+      ? c.citas.find((x) => x.telefono === c.telefono && x.fecha === estado.fecha && x.min === estado.min)
+      : undefined;
+  if (!cita) return irAlMenu(c);
+  return {
+    estado: estadoInicial(),
+    cancelarCita: { fecha: cita.fecha, min: cita.min, telefono: cita.telefono },
+    mensajes: [txt(c.l.cancelada(fechaLarga(cita.fecha, c.l), aHora(cita.min)))],
+  };
 }
 
 function pedirServicio(c) {
@@ -351,6 +405,10 @@ function porId(estado, id, c) {
     }
     case "ok":
       return confirmar(estado, c);
+    case "anular":
+      return anular(estado, c);
+    case "mantener":
+      return irAlMenu(c, c.l.mantenida);
     case "no":
       return irAlMenu(c, c.l.noPasa);
     default:
@@ -362,7 +420,7 @@ function porId(estado, id, c) {
  * @param {object} estado  Estado de la conversación (empezar con estadoInicial()).
  * @param {{tipo:"texto",texto:string}|{tipo:"boton",id:string}} entrada
  * @param {object} [ctx]   { ahora, citas, negocio, nombre, telefono, idioma }
- * @returns {{estado:object, mensajes:object[], nuevaCita?:object}}
+ * @returns {{estado:object, mensajes:object[], nuevaCita?:object, cancelarCita?:object}}
  */
 export function responder(estado, entrada, ctx = {}) {
   const base = { ahora: new Date(), citas: [], negocio: negocioPorDefecto, nombre: "", telefono: "", ...ctx };
@@ -385,6 +443,7 @@ export function responder(estado, entrada, ctx = {}) {
   if (entrada.tipo === "boton") return con(porId(est, entrada.id, c));
   if (pideInglesOEspanol) return con(irAlMenu(c, c.l.idiomaCambiado));
 
+  if (contiene(t, MI_CITA)) return con(miCita(c));
   if (contiene(t, CANCELAR)) return con(irAlMenu(c, c.l.loDejamos));
   if (contiene(t, PERSONA)) return con(derivar(c));
 
