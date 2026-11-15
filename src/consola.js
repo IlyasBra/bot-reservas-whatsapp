@@ -24,6 +24,10 @@ function turno(entrada) {
   const r = responder(estado, entrada, { citas, nombre: "Alex", telefono: "34600000000" });
   estado = r.estado;
   if (r.nuevaCita) citas.push(r.nuevaCita);
+  if (r.cancelarCita) {
+    const i = citas.findIndex((c) => c.fecha === r.cancelarCita.fecha && c.min === r.cancelarCita.min);
+    if (i >= 0) citas.splice(i, 1);
+  }
   opciones = [];
   r.mensajes.forEach(mostrar);
   stdout.write("\n> ");
